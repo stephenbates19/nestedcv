@@ -121,6 +121,8 @@ double_cv <- function(X, Y, funcs, reps = 50, n_folds = 10,  alpha = .1) {
 
 #' Internal helper for doubl_cv
 #'
+#' Randomly assigns folds and does one iteration of double cross-validation.
+#'
 #' arguments as in the "double_cv" function
 #'
 #' @return
@@ -134,6 +136,8 @@ double_cv_helper <- function(X, Y, funcs, n_folds = 10) {
 
   #nested CV model fitting
   ho_errors <- array(0, dim = c(n_folds, n_folds, nrow(X) / n_folds))
+    #^ entry i, j is error on fold i,
+    # when folds i & j are not used for model fitting.
   for(f1 in 1:(n_folds - 1)) {
     for(f2 in (f1+1):n_folds) {
       test_idx <- c(which(fold_id == f1), which(fold_id == f2))
@@ -144,6 +148,7 @@ double_cv_helper <- function(X, Y, funcs, n_folds = 10) {
     }
   }
 
+  #e_bar - f_bar in the notation of the paper
   out_vec <- rep(0, n_folds)
   for(f1 in 1:(n_folds)) {
     i <- sample(1:(n_folds-1), 1)
@@ -151,6 +156,7 @@ double_cv_helper <- function(X, Y, funcs, n_folds = 10) {
     out_vec[f1] <- sum(ho_errors[, f1, ]) / (nrow(X) * (n_folds - 1) / n_folds) -  mean(ho_errors[f1, i, ])
   }
 
+  #errors on points not used for fitting, combined across all runs
   all_ho_errs <- c()
   for(f1 in 1:(n_folds - 1)) {
     for(f2 in (f1+1):n_folds) {
