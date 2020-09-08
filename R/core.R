@@ -76,22 +76,22 @@ naive_cv <- function(X, Y, funcs, n_folds = 10, alpha = .1) {
 #' @param n_folds Number of folds, an integer.
 #' @param reps Number of repitions of double CV to combine. Many iterations are needed for stability.
 #' @param alpha Nominal type-I error level. Must be in (0,.5)
-#' @param running Whether or not to compute estimate of inflation online, with automatic stopping.
-#'                Can be slow if automatic stopping is used.
-#' @param
 #'
 #' @return
 #' \describe{
 #'   \item{\code{mean}}{Point estimate of prediction error: mean of CV prediction errors.}
 #'   \item{\code{ci_lo}}{Lower endpoint of naive CV interval for prediction error.d}
 #'   \item{\code{ci_hi}}{Lower endpoint of naive CV interval for prediction error.d}
+#'   \item{\code{sd_infl}}{The multiplicative factor needed to correct the interval width.}
 #'   \item{\code{sd}}{Standard deviation of CV prediction errors.}
 #'   \item{\code{raw_errors}}{Errors for each point, a vector of same length as input Y.}
 #'   \item{\code{fold_id}}{The fold assignmnet for each point, a vector of same length as input Y.}
+#'   \item{\code{running_sd_infl}}{The value of "sd_infl" after each repitition. This is used
+#'     to evaluate how stable the estimate is and if more replicates are needed.}
 #' }
 #'
 #' @export
-double_cv <- function(X, Y, funcs, reps = 50, n_folds = 10,  alpha = .1, running = FALSE) {
+double_cv <- function(X, Y, funcs, reps = 50, n_folds = 10,  alpha = .1) {
   #compute out-of-fold errors on SE scale
   var_pivots <- c()
   ho_errs <- c()
@@ -101,27 +101,27 @@ double_cv <- function(X, Y, funcs, reps = 50, n_folds = 10,  alpha = .1, running
     ho_errs <- c(ho_errs, temp$errs)
   }
 
-  #look at the estimate after each rep to evaluate the variance
-  if(running == TRUE) {
-    infl_est <- sapply(1:reps * n_folds, function(i) {
-      (var(as.vector(var_pivots[1:i])) / var(ho_errs[1:i]) * length(Y) / n_folds - 1) * (n_folds)
-    })
-    return(infl_est)
-  }
-
+  # inflation estimate on a variance scale
   infl_est <- (var(as.vector(var_pivots)) / var(ho_errs) * length(Y) / n_folds - 1) * (n_folds)
   infl_est <- max(1, min(infl_est, n_folds))
 
-  list("var_infl" = infl_est,
-       "mean" = mean(ho_errs),
-       "ci_lo" = mean(ho_errs) - qnorm(1-alpha/2) * sd(ho_errs) / sqrt(length(Y)) * sqrt(infl_est),
-       "ci_hi" = mean(ho_errs) + qnorm(1-alpha/2) * sd(ho_errs) / sqrt(length(Y)) * sqrt(infl_est),
-       "sd" = sd(ho_errs))
+  # look at the estimate of inflation after each repitition
+  infl_est2 <- sapply(1:reps * n_folds, function(i) {
+      temp <- (var(as.vector(var_pivots[1:i])) / var(ho_errs[1:i]) * length(Y) / n_folds - 1) * (n_folds)
+      max(1, min(temp, n_folds))
+  })
+
+  list("sd_infl" = sqrt(infl_est),
+      "mean" = mean(ho_errs),
+      "ci_lo" = mean(ho_errs) - qnorm(1-alpha/2) * sd(ho_errs) / sqrt(length(Y)) * sqrt(infl_est),
+      "ci_hi" = mean(ho_errs) + qnorm(1-alpha/2) * sd(ho_errs) / sqrt(length(Y)) * sqrt(infl_est),
+      "sd" = sd(ho_errs),
+      "running_sd_infl" = sqrt(infl_est2))
 }
 
 #' Internal helper for doubl_cv
 #'
-#' arguments as in "double_cv" function
+#' arguments as in the "double_cv" function
 #'
 #' @return
 #' \describe{
