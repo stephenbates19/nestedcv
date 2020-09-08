@@ -102,12 +102,12 @@ double_cv <- function(X, Y, funcs, reps = 50, n_folds = 10,  alpha = .1) {
   }
 
   # inflation estimate on a variance scale
-  infl_est <- (var(as.vector(var_pivots)) / var(ho_errs) * length(Y) / n_folds - 1) * (n_folds)
+  infl_est <- (var(as.vector(var_pivots)) / var(ho_errs) * length(Y) / n_folds - 1) * (n_folds - 1)
   infl_est <- max(1, min(infl_est, n_folds))
 
   # look at the estimate of inflation after each repitition
   infl_est2 <- sapply(1:reps * n_folds, function(i) {
-      temp <- (var(as.vector(var_pivots[1:i])) / var(ho_errs[1:i]) * length(Y) / n_folds - 1) * (n_folds)
+      temp <- (var(as.vector(var_pivots[1:i])) / var(ho_errs[1:i]) * length(Y) / n_folds - 1) * (n_folds - 1)
       max(1, min(temp, n_folds))
   })
 
