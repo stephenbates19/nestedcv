@@ -1,6 +1,36 @@
 ##############################################
 # standard CV
 ##############################################
+
+#' Cross-validation
+#'
+#' Performs standard k-fold cross-validation to estimate prediction
+#' error and provide a confidence interval for it.
+#'
+#' @param X A nxp data matrix.
+#' @param Y A n-vector of responses
+#' @param n_folds Number of folds, an integer.
+#' @param alpha Nominal type-I error level. Must be in (0,.5)
+#' @param funcs A list of containing three functions used as subroutines:
+#'   \describe{
+#'     \item{\code{fitter}}{A function taking X and Y and returning a model fit object.}
+#'     \item{\code{predictor}}{A function taking a model fit object from above
+#'     and X' and returning a vector of predictions.}
+#'     \item{\code{loss}}{A function taking a vector of predictions and true values returning
+#'     a vector of losses.}
+#'   }
+#'
+#' @return
+#' \describe{
+#'   \item{\code{mean}}{Point estimate of prediction error: mean of CV prediction errors.}
+#'   \item{\code{ci_lo}}{Lower endpoint of naive CV interval for prediction error.}
+#'   \item{\code{ci_hi}}{Lower endpoint of naive CV interval for prediction error.}
+#'   \item{\code{sd}}{Standard deviation of CV prediction errors.}
+#'   \item{\code{raw_errors}}{Errors for each point, a vector of same length as input Y.}
+#'   \item{\code{fold_id}}{The fold assignmnet for each point, a vector of same length as input Y.}
+#' }
+#'
+#' @export
 naive_cv <- function(X, Y, funcs, n_folds = 10, alpha = .1) {
   fold_id <- (1:nrow(X)) %% n_folds + 1
   fold_id <- sample(fold_id)
@@ -13,20 +43,60 @@ naive_cv <- function(X, Y, funcs, n_folds = 10, alpha = .1) {
     errors <- c(errors, error_k)
   }
 
-  return(c(mean(errors), sd(errors)))
+  return(list("mean" = mean(errors),
+              "ci_lo" = mean(errors) - qnorm(1-alpha/2) * sd(errors) / sqrt(length(Y)),
+              "ci_hi" = mean(errors) + qnorm(1-alpha/2) * sd(errors) / sqrt(length(Y)),
+              "sd" = sd(errors),
+              "raw_errors" = errors,
+              "fold_id" = fold_id))
 }
 ##############################################
 
 
 ##############################################
-# nested CV
+# double CV
 ##############################################
-nested_cv <- function(X, Y, funcs, reps = 50, n_folds = 10,  alpha = .1, trans = list(identity), running = FALSE) {
+
+#' Double Cross-validation
+#'
+#' Performs double k-fold cross-validation, aggregating over many random splits of the data.
+#' Provides a confidence interval for prediction interval that is more accurate than that of
+#' standard cross-validation.
+#'
+#' @param X A nxp data matrix.
+#' @param Y A n-vector of responses
+#' @param funcs A list of containing three functions used as subroutines:
+#'   \describe{
+#'     \item{\code{fitter}}{A function taking X and Y and returning a model fit object.}
+#'     \item{\code{predictor}}{A function taking a model fit object from above
+#'     and X' and returning a vector of predictions.}
+#'     \item{\code{loss}}{A function taking a vector of predictions and true values returning
+#'     a vector of losses.}
+#'   }
+#' @param n_folds Number of folds, an integer.
+#' @param reps Number of repitions of double CV to combine. Many iterations are needed for stability.
+#' @param alpha Nominal type-I error level. Must be in (0,.5)
+#' @param running Whether or not to compute estimate of inflation online, with automatic stopping.
+#'                Can be slow if automatic stopping is used.
+#' @param
+#'
+#' @return
+#' \describe{
+#'   \item{\code{mean}}{Point estimate of prediction error: mean of CV prediction errors.}
+#'   \item{\code{ci_lo}}{Lower endpoint of naive CV interval for prediction error.d}
+#'   \item{\code{ci_hi}}{Lower endpoint of naive CV interval for prediction error.d}
+#'   \item{\code{sd}}{Standard deviation of CV prediction errors.}
+#'   \item{\code{raw_errors}}{Errors for each point, a vector of same length as input Y.}
+#'   \item{\code{fold_id}}{The fold assignmnet for each point, a vector of same length as input Y.}
+#' }
+#'
+#' @export
+double_cv <- function(X, Y, funcs, reps = 50, n_folds = 10,  alpha = .1, running = FALSE) {
   #compute out-of-fold errors on SE scale
   var_pivots <- c()
   ho_errs <- c()
   for(j in 1:reps) {
-    temp <- nested_cv_helper(X, Y, funcs, n_folds, alpha, trans)
+    temp <- doublecv:::double_cv_helper(X, Y, funcs, n_folds)
     var_pivots <- rbind(var_pivots, temp$pivots)
     ho_errs <- c(ho_errs, temp$errs)
   }
@@ -40,11 +110,25 @@ nested_cv <- function(X, Y, funcs, reps = 50, n_folds = 10,  alpha = .1, trans =
   }
 
   infl_est <- (var(as.vector(var_pivots)) / var(ho_errs) * length(Y) / n_folds - 1) * (n_folds)
-  max(1, min(infl_est, n_folds))
+  infl_est <- max(1, min(infl_est, n_folds))
+
+  list("var_infl" = infl_est,
+       "mean" = mean(ho_errs),
+       "ci_lo" = mean(ho_errs) - qnorm(1-alpha/2) * sd(ho_errs) / sqrt(length(Y)) * sqrt(infl_est),
+       "ci_hi" = mean(ho_errs) + qnorm(1-alpha/2) * sd(ho_errs) / sqrt(length(Y)) * sqrt(infl_est),
+       "sd" = sd(ho_errs))
 }
 
-
-nested_cv_helper <- function(X, Y, funcs, n_folds = 10,  alpha = .1, percentile = FALSE, trans = list(identity)) {
+#' Internal helper for doubl_cv
+#'
+#' arguments as in "double_cv" function
+#'
+#' @return
+#' \describe{
+#'   \item{\code{pivots}}{A vector of same length as Y of difference statistics.}
+#'   \item{\code{errors}}{A vector of all errors of observations not used in model training.}
+#' }
+double_cv_helper <- function(X, Y, funcs, n_folds = 10) {
   fold_id <- 1:nrow(X) %% n_folds + 1
   fold_id <- sample(fold_id)
 
@@ -74,6 +158,7 @@ nested_cv_helper <- function(X, Y, funcs, n_folds = 10,  alpha = .1, percentile 
     }
   }
 
-  return(list("pivots" = out_vec, "errs" = all_ho_errs))
+  return(list("pivots" = out_vec,
+              "errs" = all_ho_errs))
 }
 ##############################################
