@@ -1,10 +1,10 @@
-Package: doublecv
+Package: nestedcv
 Type: Package
-Title: Double Cross-Validation
+Title: Nested Cross-Validation
 Version: 0.1.0
 Authors@R: person("Stephen", "Bates", email = "stephen.bates19@gmail.com",
                   role = c("aut", "cre"))
-Description: Implements double cross-validation to return adjusted cross-validation
+Description: Implements nested cross-validation to return adjusted cross-validation
     confidence intervals for prediction error.
 License: MIT + file LICENSE
 Encoding: UTF-8

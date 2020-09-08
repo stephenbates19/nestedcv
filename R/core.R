@@ -54,12 +54,12 @@ naive_cv <- function(X, Y, funcs, n_folds = 10, alpha = .1) {
 
 
 ##############################################
-# double CV
+# nested CV
 ##############################################
 
-#' Double Cross-validation
+#' nested Cross-validation
 #'
-#' Performs double k-fold cross-validation, aggregating over many random splits of the data.
+#' Performs nested k-fold cross-validation, aggregating over many random splits of the data.
 #' Provides a confidence interval for prediction interval that is more accurate than that of
 #' standard cross-validation.
 #'
@@ -74,7 +74,7 @@ naive_cv <- function(X, Y, funcs, n_folds = 10, alpha = .1) {
 #'     a vector of losses.}
 #'   }
 #' @param n_folds Number of folds, an integer.
-#' @param reps Number of repitions of double CV to combine. Many iterations are needed for stability.
+#' @param reps Number of repitions of nested CV to combine. Many iterations are needed for stability.
 #' @param alpha Nominal type-I error level. Must be in (0,.5)
 #'
 #' @return
@@ -91,12 +91,12 @@ naive_cv <- function(X, Y, funcs, n_folds = 10, alpha = .1) {
 #' }
 #'
 #' @export
-double_cv <- function(X, Y, funcs, reps = 50, n_folds = 10,  alpha = .1) {
+nested_cv <- function(X, Y, funcs, reps = 50, n_folds = 10,  alpha = .1) {
   #compute out-of-fold errors on SE scale
   var_pivots <- c()
   ho_errs <- c()
   for(j in 1:reps) {
-    temp <- doublecv:::double_cv_helper(X, Y, funcs, n_folds)
+    temp <- nestedcv:::nested_cv_helper(X, Y, funcs, n_folds)
     var_pivots <- rbind(var_pivots, temp$pivots)
     ho_errs <- c(ho_errs, temp$errs)
   }
@@ -119,18 +119,18 @@ double_cv <- function(X, Y, funcs, reps = 50, n_folds = 10,  alpha = .1) {
       "running_sd_infl" = sqrt(infl_est2))
 }
 
-#' Internal helper for doubl_cv
+#' Internal helper for nested_cv
 #'
-#' Randomly assigns folds and does one iteration of double cross-validation.
+#' Randomly assigns folds and does one iteration of nested cross-validation.
 #'
-#' arguments as in the "double_cv" function
+#' arguments as in the "nested_cv" function
 #'
 #' @return
 #' \describe{
 #'   \item{\code{pivots}}{A vector of same length as Y of difference statistics.}
 #'   \item{\code{errors}}{A vector of all errors of observations not used in model training.}
 #' }
-double_cv_helper <- function(X, Y, funcs, n_folds = 10) {
+nested_cv_helper <- function(X, Y, funcs, n_folds = 10) {
   fold_id <- 1:nrow(X) %% n_folds + 1
   fold_id <- sample(fold_id)
 

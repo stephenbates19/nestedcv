@@ -2,7 +2,7 @@
 % Please edit documentation in R/core.R
 \name{naive_cv}
 \alias{naive_cv}
-\title{Performs standard k-fold cross-validation}
+\title{Cross-validation}
 \usage{
 naive_cv(X, Y, funcs, n_folds = 10, alpha = 0.1)
 }
@@ -35,5 +35,6 @@ naive_cv(X, Y, funcs, n_folds = 10, alpha = 0.1)
 }
 }
 \description{
-Performs standard k-fold cross-validation
+Performs standard k-fold cross-validation to estimate prediction
+error and provide a confidence interval for it.
 }
