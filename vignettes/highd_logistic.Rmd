@@ -1,0 +1,146 @@
+---
+title: "Nested-CV: High-dimensional Logistic Regression"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Nested-CV: High-dimensional Logistic Regression}
+  %\VignetteEngine{knitr::rmarkdown}
+  \usepackage[utf8]{inputenc}
+---
+
+
+```{r}
+library(nestedcv)
+library(glmnet)
+```
+
+### Simulation setting
+
+In this example, we use a sparse logistic regression model. There are 90 examples with 1000 features, and the misclassification error rate of the best possible classifier is about 20\%.
+
+```{r}
+n <- 90 #number of observations
+p <- 1000 #number of features
+k <- 4 #number of nonzero coefficients
+alpha <- .1 #nominal error rate, total across both tails.
+
+# i.i.d. create the design matrix 
+set.seed(1)
+X <- matrix(rnorm(n = n * p), nrow = n)
+
+#sample Y from a logistic model
+strength <- 1 #signal strength
+beta = strength * c(rep(1, k), rep(0, p - k))
+
+#sample respons from a sparse logistic regression model
+probs <- 1 / (1 + exp(-strength * X %*% beta))
+Y <- (runif(n) < probs) * 1.0
+
+#Fit one model to find a good lambda. This lambda will be fixed in future simulations.
+fit <- cv.glmnet(X, Y, family = "binomial")
+lambdas <- fit$lambda
+best_lam <- match(fit$lambda.1se, lambdas) #selected value of lambda
+
+#determine Bayes error with this beta vector with large holdout set
+set.seed(555)
+n_holdout <- 5000
+X_holdout <- matrix(rnorm(n_holdout * p), nrow = n_holdout)
+p_holdout <- 1 / (1 + exp(-X_holdout %*% beta))
+Y_holdout <- (runif(n_holdout) < p_holdout) * 1.0
+bayes_error <- (rowSums(X_holdout[, 1:k]) < 0) * (Y_holdout == 1) + (rowSums(X_holdout[, 1:k]) > 0) * (Y_holdout == 0)
+error_rate <- mean(bayes_error)
+print(paste0("The Bayes error rate is: ", error_rate))
+```
+
+### Nested cross-validation
+
+In order to run the `nested_cv' function, we will need three subroutins:
+1. A *loss function*
+1. A *model-fitting subroutine*
+1. A *prediction subroutine*
+
+```{r}
+##############################################
+#subroutines for logistic lasso
+##############################################
+
+#return loss of a vector of predictions
+misclass_loss <- function(y_hat, y_true) {
+  y_hat != y_true
+} 
+
+#take training data and return a fitted model
+fitter_glmnet_logistic <- function(X, Y) {
+  fit <- glmnet(X, Y, family = "binomial", lambda = lambdas) #assumes "lambdas" is in global env
+  
+  fit
+}
+
+#take output of "fitter" and matrix of features and return a prediction
+predictor_glmnet_logistic <- function(fit, X_new) {
+  beta_hat <- fit$beta[, best_lam] #assumes best_lam is in global env
+  a0_hat <- fit$a0[best_lam]
+  y_hat <- (X_new %*% beta_hat + a0_hat > 0)
+  
+  y_hat
+} 
+
+logistic_lasso_funs <- list(fitter = fitter_glmnet_logistic,
+                            predictor = predictor_glmnet_logistic,
+                            loss = misclass_loss)
+
+##############################################
+```
+
+With these functions, we carry out nested CV on our data
+
+```{r}
+n_folds <- 5
+nested_cv_reps <- 150 #average over many random splits
+
+#nested CV
+t1 <- Sys.time()
+set.seed(100)
+nested_cv_results <- nestedcv::nested_cv(X, Y, logistic_lasso_funs, 
+                           n_folds = n_folds, reps  = nested_cv_reps)
+t2 <- Sys.time()
+print(t2 - t1)
+
+#standard CV
+naive_cv_results <- nestedcv::naive_cv(X, Y, logistic_lasso_funs, 
+                           n_folds = n_folds)
+```
+
+
+### Evaluating the results
+
+We first check how the our estimate of standard error changes with the 
+number of random splits.
+
+```{r}
+plot(nested_cv_results$running_sd_infl,
+     xlab="Number of random splits", 
+     ylab = "Estimate of Standardized Inflation")
+```
+
+It looks like the estimate is relatively stable, so we have taken enough splits. Based on this 
+plot, we see that our confidence intervals will be a bout 1.5 times wider than the naive CV intervals.
+
+Lastly,, we compute the true misclassification rate of our model based on a large holdout set and then compare the 
+nested CV intervals to the usual CV intervals.
+
+```{r}
+# find true error of the fitted model based on holdout set
+true_error <- mean(misclass_loss(predict(fit, X_holdout, s = "lambda.1se", type = "response") > .5, 
+                            Y_holdout))
+print(paste0("True prediction error of the model: ", true_error))
+
+print(paste0("Nested CV interval: (", 
+             nested_cv_results$ci_lo, ", ",
+             nested_cv_results$ci_hi, ")"))
+
+print(paste0("Standard CV interval: (", 
+             naive_cv_results$ci_lo, ", ",
+             naive_cv_results$ci_hi, ")"))
+
+```
+
