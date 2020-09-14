@@ -122,8 +122,8 @@ plot(nested_cv_results$running_sd_infl,
      ylab = "Estimate of Standardized Inflation")
 ```
 
-It looks like the estimate is relatively stable, so we have taken enough splits. Based on this 
-plot, we see that our confidence intervals will be a bout 1.5 times wider than the naive CV intervals.
+It looks like the estimate is relatively stable, so we have used enough random. Based on this 
+plot, we see that the nested CV confidence interval will be a bout 1.5 times wider than the naive CV interval.
 
 Lastly,, we compute the true misclassification rate of our model based on a large holdout set and then compare the 
 nested CV intervals to the usual CV intervals.

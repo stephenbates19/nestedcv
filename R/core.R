@@ -91,11 +91,11 @@ naive_cv <- function(X, Y, funcs, n_folds = 10, alpha = .1) {
 #' }
 #'
 #' @export
-nested_cv <- function(X, Y, funcs, reps = 50, n_folds = 10,  alpha = .1) {
+nested_cv <- function(X, Y, funcs, reps = 50, n_folds = 10,  alpha = .1, bias_reps = NA) {
   #compute out-of-fold errors on SE scale
   var_pivots <- c()
   ho_errs <- c()
-  for(j in 1:reps) {
+  for(i in 1:reps) {
     temp <- nestedcv:::nested_cv_helper(X, Y, funcs, n_folds)
     var_pivots <- rbind(var_pivots, temp$pivots)
     ho_errs <- c(ho_errs, temp$errs)
@@ -105,16 +105,37 @@ nested_cv <- function(X, Y, funcs, reps = 50, n_folds = 10,  alpha = .1) {
   infl_est <- (var(as.vector(var_pivots)) / var(ho_errs) * length(Y) / n_folds - 1) * (n_folds - 1)
   infl_est <- max(1, min(infl_est, n_folds))
 
-  # look at the estimate of inflation after each repitition
+  # look at the estimate of inflation after each repetition
   infl_est2 <- sapply(1:reps * n_folds, function(i) {
       temp <- (var(as.vector(var_pivots[1:i])) / var(ho_errs[1:i]) * length(Y) / n_folds - 1) * (n_folds - 1)
       max(1, min(temp, n_folds))
   })
 
+  #bias correction
+  cv_means <- c() #estimated pred error from normal CV
+  bias_est <- 0
+  if(is.na(bias_reps)) {
+    bias_reps <- ceiling(reps / 10) #fewer reps for bias estimation
+  }
+  if(bias_reps == 0) {
+    bias_est <- 0
+  }
+  else {
+    for(i in 1:bias_reps) {
+      temp <- nestedcv:::naive_cv(X, Y, funcs, n_folds)
+      cv_means <- c(cv_means, temp$mean)
+    }
+
+    bias_est <- ( mean(ho_errs) - mean(cv_means)) * (1 + ((n_folds - 2) / (n_folds - 1))^(1.5))
+  }
+  pred_est <- mean(ho_errs) - bias_est #debiased estimate
+
   list("sd_infl" = sqrt(infl_est),
-      "mean" = mean(ho_errs),
-      "ci_lo" = mean(ho_errs) - qnorm(1-alpha/2) * sd(ho_errs) / sqrt(length(Y)) * sqrt(infl_est),
-      "ci_hi" = mean(ho_errs) + qnorm(1-alpha/2) * sd(ho_errs) / sqrt(length(Y)) * sqrt(infl_est),
+      "err_hat" = pred_est,
+      "ci_lo" = pred_est - qnorm(1-alpha/2) * sd(ho_errs) / sqrt(length(Y)) * sqrt(infl_est),
+      "ci_hi" = pred_est + qnorm(1-alpha/2) * sd(ho_errs) / sqrt(length(Y)) * sqrt(infl_est),
+      "raw_mean" = mean(ho_errs),
+      "bias_est" = bias_est,
       "sd" = sd(ho_errs),
       "running_sd_infl" = sqrt(infl_est2))
 }
