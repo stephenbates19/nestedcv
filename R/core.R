@@ -43,9 +43,10 @@ naive_cv <- function(X, Y, funcs, n_folds = 10, alpha = .1) {
     errors <- c(errors, error_k)
   }
 
-  return(list("mean" = mean(errors),
+  return(list("err_hat" = mean(errors),
               "ci_lo" = mean(errors) - qnorm(1-alpha/2) * sd(errors) / sqrt(length(Y)),
               "ci_hi" = mean(errors) + qnorm(1-alpha/2) * sd(errors) / sqrt(length(Y)),
+              "raw_mean" = mean(errors),
               "sd" = sd(errors),
               "raw_errors" = errors,
               "fold_id" = fold_id))
