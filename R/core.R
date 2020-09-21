@@ -124,7 +124,7 @@ nested_cv <- function(X, Y, funcs, reps = 50, n_folds = 10,  alpha = .1, bias_re
   else {
     for(i in 1:bias_reps) {
       temp <- nestedcv:::naive_cv(X, Y, funcs, n_folds)
-      cv_means <- c(cv_means, temp$mean)
+      cv_means <- c(cv_means, temp$err_hat)
     }
 
     bias_est <- ( mean(ho_errs) - mean(cv_means)) * (1 + ((n_folds - 2) / (n_folds - 1))^(1.5))
