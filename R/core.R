@@ -31,16 +31,23 @@
 #' }
 #'
 #' @export
-naive_cv <- function(X, Y, funcs, n_folds = 10, alpha = .1) {
+naive_cv <- function(X, Y, funcs, n_folds = 10, alpha = .1, trans = list(identity)) {
   fold_id <- (1:nrow(X)) %% n_folds + 1
   fold_id <- sample(fold_id)
 
   errors <- c()
+  gp_errors <- c()
   for(k in 1:n_folds) {
     fit <- funcs$fitter(X[fold_id !=k, ], Y[fold_id != k])
     y_hat <- funcs$predictor(fit, X[fold_id == k, ])
     error_k <- funcs$loss(y_hat, Y[fold_id == k])
     errors <- c(errors, error_k)
+
+    temp_vec <- c()
+    for(tran in trans) {
+      temp_vec <- c(temp_vec, tran(mean(error_k)))
+    }
+    gp_errors <- rbind(gp_errors, temp_vec)
   }
 
   return(list("err_hat" = mean(errors),
@@ -48,6 +55,8 @@ naive_cv <- function(X, Y, funcs, n_folds = 10, alpha = .1) {
               "ci_hi" = mean(errors) + qnorm(1-alpha/2) * sd(errors) / sqrt(length(Y)),
               "raw_mean" = mean(errors),
               "sd" = sd(errors),
+              "group_err_hat" = apply(gp_errors, 2, mean),
+              "group_sd" = apply(gp_errors, 2, sd),
               "raw_errors" = errors,
               "fold_id" = fold_id))
 }
@@ -92,23 +101,31 @@ naive_cv <- function(X, Y, funcs, n_folds = 10, alpha = .1) {
 #' }
 #'
 #' @export
-nested_cv <- function(X, Y, funcs, reps = 50, n_folds = 10,  alpha = .1, bias_reps = NA) {
+nested_cv <- function(X, Y, funcs, reps = 50, n_folds = 10,  alpha = .1, bias_reps = NA, trans = list(identity)) {
   #compute out-of-fold errors on SE scale
   var_pivots <- c()
+  gp_errs <- c()
   ho_errs <- c()
   for(i in 1:reps) {
-    temp <- nestedcv:::nested_cv_helper(X, Y, funcs, n_folds)
+    temp <- nestedcv:::nested_cv_helper(X, Y, funcs, n_folds, trans = trans)
     var_pivots <- rbind(var_pivots, temp$pivots)
+    gp_errs <- rbind(gp_errs, temp$gp_errs)
     ho_errs <- c(ho_errs, temp$errs)
   }
 
   # inflation estimate on a variance scale
-  infl_est <- (var(as.vector(var_pivots)) / var(ho_errs) * length(Y) / n_folds - 1) * (n_folds - 1)
-  infl_est <- max(1, min(infl_est, n_folds))
+  infl_est <- rep(0, length(trans))
+  for(tnum in 1:length(trans)) {
+    temp_est <- (var(as.vector(var_pivots[, tnum])) / var(gp_errs[, tnum]) - 1) * (n_folds - 1)
+    temp_est <- max(1, min(temp_est, n_folds))
+    infl_est[tnum] <- temp_est
+  }
 
   # look at the estimate of inflation after each repetition
+  ugp_infl <- (var(as.vector(var_pivots[, 1])) / var(ho_errs) * length(Y) / n_folds - 1) * (n_folds - 1)
+  ugp_infl <- max(1, min(ugp_infl, n_folds))
   infl_est2 <- sapply(1:reps, function(i) {
-      temp <- (var(as.vector(var_pivots[1:(i*n_folds)])) / var(ho_errs[1:(i*n*(n_folds-1))]) * length(Y) / n_folds - 1) * (n_folds - 1)
+      temp <- (var(as.vector(var_pivots[1:(i*n_folds), 1])) / var(ho_errs[1:(i*n*(n_folds-1))]) * length(Y) / n_folds - 1) * (n_folds - 1)
       max(1, min(temp, n_folds))
   })
 
@@ -116,7 +133,7 @@ nested_cv <- function(X, Y, funcs, reps = 50, n_folds = 10,  alpha = .1, bias_re
   cv_means <- c() #estimated pred error from normal CV
   bias_est <- 0
   if(is.na(bias_reps)) {
-    bias_reps <- ceiling(reps / 10) #fewer reps for bias estimation
+    bias_reps <- ceiling(reps / 5) #fewer reps for bias estimation
   }
   if(bias_reps == 0) {
     bias_est <- 0
@@ -131,11 +148,14 @@ nested_cv <- function(X, Y, funcs, reps = 50, n_folds = 10,  alpha = .1, bias_re
   }
   pred_est <- mean(ho_errs) - bias_est #debiased estimate
 
-  list("sd_infl" = sqrt(infl_est),
+  list("sd_infl" = sqrt(ugp_infl),
       "err_hat" = pred_est,
       "ci_lo" = pred_est - qnorm(1-alpha/2) * sd(ho_errs) / sqrt(length(Y)) * sqrt(infl_est),
       "ci_hi" = pred_est + qnorm(1-alpha/2) * sd(ho_errs) / sqrt(length(Y)) * sqrt(infl_est),
       "raw_mean" = mean(ho_errs),
+      "gp_mean" = apply(gp_errs, 2, mean),
+      "gp_sd" = apply(gp_errs, 2, sd),
+      "gp_sd_infl" = sqrt(infl_est),
       "bias_est" = bias_est,
       "sd" = sd(ho_errs),
       "running_sd_infl" = sqrt(infl_est2))
@@ -152,7 +172,7 @@ nested_cv <- function(X, Y, funcs, reps = 50, n_folds = 10,  alpha = .1, bias_re
 #'   \item{\code{pivots}}{A vector of same length as Y of difference statistics.}
 #'   \item{\code{errors}}{A vector of all errors of observations not used in model training.}
 #' }
-nested_cv_helper <- function(X, Y, funcs, n_folds = 10) {
+nested_cv_helper <- function(X, Y, funcs, n_folds = 10, trans = list(identity)) {
   fold_id <- 1:nrow(X) %% n_folds + 1
   fold_id <- sample(fold_id)
 
@@ -170,12 +190,23 @@ nested_cv_helper <- function(X, Y, funcs, n_folds = 10) {
     }
   }
 
-  #e_bar - f_bar in the notation of the paper
-  out_vec <- rep(0, n_folds)
+  #e_bar - f_bar in the notation of the paper. n_folds x length(tran) matrix
+  out_mat <- matrix(0, n_folds, length(trans))
   for(f1 in 1:(n_folds)) {
     i <- sample(1:(n_folds-1), 1)
     if(i >= f1) {i <- i + 1} #sample random other fold
-    out_vec[f1] <- sum(ho_errors[, f1, ]) / (nrow(X) * (n_folds - 1) / n_folds) -  mean(ho_errors[f1, i, ])
+
+    for(tnum in 1:length(trans)) {
+      tran <- trans[[tnum]]
+
+      #loop over other folds
+      e_bar_t <- c() #transformed group means
+      for(f2 in 1:n_folds) {
+        if(f2 == f1) {next}
+        e_bar_t <- c(e_bar_t, tran(mean(ho_errors[f2, f1, ])))
+      }
+      out_mat[f1, tnum] <- mean(e_bar_t) -  tran(mean(ho_errors[f1, i, ]))
+    }
   }
 
   #errors on points not used for fitting, combined across all runs
@@ -186,7 +217,22 @@ nested_cv_helper <- function(X, Y, funcs, n_folds = 10) {
     }
   }
 
-  return(list("pivots" = out_vec,
-              "errs" = all_ho_errs))
+  #grouped errors on points not used for fitting, combined across all runs. matrix with length(trans) cols
+  all_ho_gp_errs <- c()
+  for(f1 in 1:(n_folds - 1)) {
+    for(f2 in (f1+1):n_folds) {
+      temp <- matrix(0, 2, length(trans))
+      for(tnum in 1:length(trans)) {
+        tran <- trans[[tnum]]
+        temp[1, tnum] <- tran(mean(ho_errors[f2, f1, ]))
+        temp[2, tnum] <- tran(mean(ho_errors[f1, f2, ]))
+      }
+      all_ho_gp_errs <- rbind(all_ho_gp_errs, temp)
+    }
+  }
+
+  return(list("pivots" = out_mat,
+              "errs" = all_ho_errs,
+              "gp_errs" = all_ho_gp_errs))
 }
 ##############################################
