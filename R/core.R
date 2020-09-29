@@ -31,16 +31,17 @@
 #' }
 #'
 #' @export
-naive_cv <- function(X, Y, funcs, n_folds = 10, alpha = .1, trans = list(identity)) {
+naive_cv <- function(X, Y, funcs, n_folds = 10, alpha = .1,
+                     trans = list(identity), funcs_params = NULL) {
   fold_id <- (1:nrow(X)) %% n_folds + 1
   fold_id <- sample(fold_id)
 
   errors <- c()
   gp_errors <- c()
   for(k in 1:n_folds) {
-    fit <- funcs$fitter(X[fold_id !=k, ], Y[fold_id != k])
-    y_hat <- funcs$predictor(fit, X[fold_id == k, ])
-    error_k <- funcs$loss(y_hat, Y[fold_id == k])
+    fit <- funcs$fitter(X[fold_id !=k, ], Y[fold_id != k], funcs_params = funcs_params)
+    y_hat <- funcs$predictor(fit, X[fold_id == k, ], funcs_params = funcs_params)
+    error_k <- funcs$loss(y_hat, Y[fold_id == k], funcs_params = funcs_params)
     errors <- c(errors, error_k)
 
     temp_vec <- c()
@@ -101,13 +102,14 @@ naive_cv <- function(X, Y, funcs, n_folds = 10, alpha = .1, trans = list(identit
 #' }
 #'
 #' @export
-nested_cv <- function(X, Y, funcs, reps = 50, n_folds = 10,  alpha = .1, bias_reps = NA, trans = list(identity)) {
+nested_cv <- function(X, Y, funcs, reps = 50, n_folds = 10,  alpha = .1, bias_reps = NA,
+                      trans = list(identity), funcs_params = NULL) {
   #compute out-of-fold errors on SE scale
   var_pivots <- c()
   gp_errs <- c()
   ho_errs <- c()
   for(i in 1:reps) {
-    temp <- nestedcv:::nested_cv_helper(X, Y, funcs, n_folds, trans = trans)
+    temp <- nestedcv:::nested_cv_helper(X, Y, funcs, n_folds, trans = trans, funcs_params = funcs_params)
     var_pivots <- rbind(var_pivots, temp$pivots)
     gp_errs <- rbind(gp_errs, temp$gp_errs)
     ho_errs <- c(ho_errs, temp$errs)
@@ -140,7 +142,7 @@ nested_cv <- function(X, Y, funcs, reps = 50, n_folds = 10,  alpha = .1, bias_re
   }
   else {
     for(i in 1:bias_reps) {
-      temp <- nestedcv:::naive_cv(X, Y, funcs, n_folds)
+      temp <- nestedcv:::naive_cv(X, Y, funcs, n_folds, funcs_params = funcs_params)
       cv_means <- c(cv_means, temp$err_hat)
     }
 
@@ -172,7 +174,7 @@ nested_cv <- function(X, Y, funcs, reps = 50, n_folds = 10,  alpha = .1, bias_re
 #'   \item{\code{pivots}}{A vector of same length as Y of difference statistics.}
 #'   \item{\code{errors}}{A vector of all errors of observations not used in model training.}
 #' }
-nested_cv_helper <- function(X, Y, funcs, n_folds = 10, trans = list(identity)) {
+nested_cv_helper <- function(X, Y, funcs, n_folds = 10, trans = list(identity), funcs_params = NULL) {
   fold_id <- 1:nrow(X) %% n_folds + 1
   fold_id <- sample(fold_id)
 
@@ -183,10 +185,10 @@ nested_cv_helper <- function(X, Y, funcs, n_folds = 10, trans = list(identity)) 
   for(f1 in 1:(n_folds - 1)) {
     for(f2 in (f1+1):n_folds) {
       test_idx <- c(which(fold_id == f1), which(fold_id == f2))
-      fit <- funcs$fitter(X[-test_idx, ], Y[-test_idx])
-      preds <- funcs$predictor(fit, X)
-      ho_errors[f1, f2, ] <- funcs$loss(preds[fold_id == f1], Y[fold_id == f1])
-      ho_errors[f2, f1, ] <- funcs$loss(preds[fold_id == f2], Y[fold_id == f2])
+      fit <- funcs$fitter(X[-test_idx, ], Y[-test_idx], funcs_params = funcs_params)
+      preds <- funcs$predictor(fit, X, funcs_params = funcs_params)
+      ho_errors[f1, f2, ] <- funcs$loss(preds[fold_id == f1], Y[fold_id == f1], funcs_params = funcs_params)
+      ho_errors[f2, f1, ] <- funcs$loss(preds[fold_id == f2], Y[fold_id == f2], funcs_params = funcs_params)
     }
   }
 
