@@ -127,7 +127,7 @@ nested_cv <- function(X, Y, funcs, reps = 50, n_folds = 10,  alpha = .1, bias_re
   ugp_infl <- (var(as.vector(var_pivots[, 1])) / var(ho_errs) * length(Y) / n_folds - 1) * (n_folds - 1)
   ugp_infl <- max(1, min(ugp_infl, n_folds))
   infl_est2 <- sapply(1:reps, function(i) {
-      temp <- (var(as.vector(var_pivots[1:(i*n_folds), 1])) / var(ho_errs[1:(i*n*(n_folds-1))]) * length(Y) / n_folds - 1) * (n_folds - 1)
+      temp <- (var(as.vector(var_pivots[1:(i*n_folds), 1])) / var(ho_errs[1:(i*length(Y)*(n_folds-1))]) * length(Y) / n_folds - 1) * (n_folds - 1)
       max(1, min(temp, n_folds))
   })
 
