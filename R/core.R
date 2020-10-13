@@ -103,16 +103,26 @@ naive_cv <- function(X, Y, funcs, n_folds = 10, alpha = .1,
 #'
 #' @export
 nested_cv <- function(X, Y, funcs, reps = 50, n_folds = 10,  alpha = .1, bias_reps = NA,
-                      trans = list(identity), funcs_params = NULL) {
+                      trans = list(identity), funcs_params = NULL, parallel = FALSE) {
   #compute out-of-fold errors on SE scale
   var_pivots <- c()
   gp_errs <- c()
   ho_errs <- c()
-  for(i in 1:reps) {
-    temp <- nestedcv:::nested_cv_helper(X, Y, funcs, n_folds, trans = trans, funcs_params = funcs_params)
-    var_pivots <- rbind(var_pivots, temp$pivots)
-    gp_errs <- rbind(gp_errs, temp$gp_errs)
-    ho_errs <- c(ho_errs, temp$errs)
+  if(parallel == FALSE){
+    for(i in 1:reps) {
+      temp <- nestedcv:::nested_cv_helper(X, Y, funcs, n_folds, trans = trans, funcs_params = funcs_params)
+      var_pivots <- rbind(var_pivots, temp$pivots)
+      gp_errs <- rbind(gp_errs, temp$gp_errs)
+      ho_errs <- c(ho_errs, temp$errs)
+    }
+  } else {
+    raw <- parallel::mclapply(1:reps, function(i){nestedcv:::nested_cv_helper(X, Y, funcs, n_folds, trans = trans, funcs_params = funcs_params)})
+    for(i in 1:reps) {
+      temp <- raw[[i]]
+      var_pivots <- rbind(var_pivots, temp$pivots)
+      gp_errs <- rbind(gp_errs, temp$gp_errs)
+      ho_errs <- c(ho_errs, temp$errs)
+    }
   }
 
   # inflation estimate on a variance scale

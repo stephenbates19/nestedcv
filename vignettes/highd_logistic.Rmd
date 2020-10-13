@@ -63,30 +63,29 @@ In order to run the `nested_cv' function, we will need three subroutins:
 #subroutines for logistic lasso
 ##############################################
 
-#return loss of a vector of predictions
-misclass_loss <- function(y_hat, y_true) {
-  y_hat != y_true
+misclass_loss <- function(y1, y2, funcs_params = NA) {
+  y1 != y2
 } 
 
-#take training data and return a fitted model
-fitter_glmnet_logistic <- function(X, Y) {
-  fit <- glmnet(X, Y, family = "binomial", lambda = lambdas) #assumes "lambdas" is in global env
+fitter_glmnet_logistic <- function(X, Y, idx = NA, funcs_params = NA) {
+  if(sum(is.na(idx)) > 0) {idx <- 1:nrow(X)}
+  fit <- glmnet(X[idx, ], Y[idx], family = "binomial", lambda = funcs_params$lambdas) #assumes lambda is in global env
   
   fit
 }
 
-#take output of "fitter" and matrix of features and return a prediction
-predictor_glmnet_logistic <- function(fit, X_new) {
-  beta_hat <- fit$beta[, best_lam] #assumes best_lam is in global env
-  a0_hat <- fit$a0[best_lam]
-  y_hat <- (X_new %*% beta_hat + a0_hat > 0)
+predictor_glmnet_logistic <- function(fit, X_new, funcs_params = NA) {
+  beta_hat <- fit$beta[, funcs_params$best_lam] #assumes best_lam is in global env
+  a0_hat <- fit$a0[funcs_params$best_lam]
+  preds <- (X_new %*% beta_hat + a0_hat > 0)
   
-  y_hat
+  preds
 } 
 
 logistic_lasso_funs <- list(fitter = fitter_glmnet_logistic,
                             predictor = predictor_glmnet_logistic,
-                            loss = misclass_loss)
+                            loss = misclass_loss,
+                            name = "logistic_lasso")
 
 ##############################################
 ```
