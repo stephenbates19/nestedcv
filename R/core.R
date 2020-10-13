@@ -152,8 +152,8 @@ nested_cv <- function(X, Y, funcs, reps = 50, n_folds = 10,  alpha = .1, bias_re
 
   list("sd_infl" = sqrt(ugp_infl),
       "err_hat" = pred_est,
-      "ci_lo" = pred_est - qnorm(1-alpha/2) * sd(ho_errs) / sqrt(length(Y)) * sqrt(infl_est),
-      "ci_hi" = pred_est + qnorm(1-alpha/2) * sd(ho_errs) / sqrt(length(Y)) * sqrt(infl_est),
+      "ci_lo" = pred_est - qnorm(1-alpha/2) * sd(ho_errs) / sqrt(length(Y)) * sqrt(ugp_infl),
+      "ci_hi" = pred_est + qnorm(1-alpha/2) * sd(ho_errs) / sqrt(length(Y)) * sqrt(ugp_infl),
       "raw_mean" = mean(ho_errs),
       "gp_mean" = apply(gp_errs, 2, mean),
       "gp_sd" = apply(gp_errs, 2, sd),
