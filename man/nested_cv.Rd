@@ -4,7 +4,18 @@
 \alias{nested_cv}
 \title{nested Cross-validation}
 \usage{
-nested_cv(X, Y, funcs, reps = 50, n_folds = 10, alpha = 0.1)
+nested_cv(
+  X,
+  Y,
+  funcs,
+  reps = 50,
+  n_folds = 10,
+  alpha = 0.1,
+  bias_reps = NA,
+  trans = list(identity),
+  funcs_params = NULL,
+  n_cores = 1
+)
 }
 \arguments{
 \item{X}{A nxp data matrix.}

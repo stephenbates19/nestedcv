@@ -4,7 +4,15 @@
 \alias{naive_cv}
 \title{Cross-validation}
 \usage{
-naive_cv(X, Y, funcs, n_folds = 10, alpha = 0.1)
+naive_cv(
+  X,
+  Y,
+  funcs,
+  n_folds = 10,
+  alpha = 0.1,
+  trans = list(identity),
+  funcs_params = NULL
+)
 }
 \arguments{
 \item{X}{A nxp data matrix.}

@@ -4,7 +4,14 @@
 \alias{nested_cv_helper}
 \title{Internal helper for nested_cv}
 \usage{
-nested_cv_helper(X, Y, funcs, n_folds = 10)
+nested_cv_helper(
+  X,
+  Y,
+  funcs,
+  n_folds = 10,
+  trans = list(identity),
+  funcs_params = NULL
+)
 }
 \value{
 \describe{
