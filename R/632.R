@@ -27,11 +27,11 @@ boot632 <- function(x, y, funcs, alpha = .1, nboot = 500,  ...) {
 
   #compute matrix of bootstrap subsamples
   if(calce00 == F) {
-    saveii <- matrix(sample(rep(1:n, nboot), 
-                            replace = F, size = n * nboot), 
+    saveii <- matrix(sample(rep(1:n, nboot),
+                            replace = F, size = n * nboot),
                     ncol = nboot, byrow = F)
   }
-  # modifies the bootstrap sampling to always use the 
+  # modifies the bootstrap sampling to always use the
   # same number of distinct training points (and test points)
   if(calce00 == T) {
     saveii <- matrix(0, ncol = nboot, nrow = n)
@@ -68,7 +68,7 @@ boot632 <- function(x, y, funcs, alpha = .1, nboot = 500,  ...) {
   }
 
   #compute OOB error
-  #e1<-0  
+  #e1<-0
   #dd<-rep(0,n)
   e0i<-rep(0,n) #OOB error for each obs
   for(i in 1:n) {
@@ -93,8 +93,8 @@ boot632 <- function(x, y, funcs, alpha = .1, nboot = 500,  ...) {
     en<-(1-1/n)^(-n)
     qq<-rep(0,nboot)
     nq<-matrix(0,nrow=nboot,ncol=n)
-    
-    for(b in 1:nboot){ 
+
+    for(b in 1:nboot){
       for(i in 1:n){
         nq[b,i]<-sum(saveii[,b]==i)
     }}
@@ -111,9 +111,9 @@ boot632 <- function(x, y, funcs, alpha = .1, nboot = 500,  ...) {
     for(i in 1:n){
       dd[i]<-(2+1/(n-1))*((e0i[i]-e0)/n)+en*cov(nq[,i],qq)
     }
-    
+
     #compute (35)
-    se.e0<-sqrt(sum(dd^2)) 
+    se.e0<-sqrt(sum(dd^2))
 
     #compute line (42)
     for(b in 1:nboot){
@@ -156,13 +156,15 @@ boot632 <- function(x, y, funcs, alpha = .1, nboot = 500,  ...) {
 
   op632 = 0.632 * (e0 - app.err)
   se.naive=sqrt(var(e0i)/n)
+  se.e0.adj = sqrt(se.e0^2 - sein.e0^2) #line (43)
+  ratio = (app.err + op632) / e0 #heuristic adjustment to get 632 SE
 
   return(list("err_hat" = app.err + op632,
               "bias_est" = e0 - app.err - op632,
               "raw_mean" = e0,
               "se_naive" = se.naive,
               "se_est" = se.e0,
-              "se_est2" = sqrt(se.e0^2 - sein.e0^2),  #line (43)
-              "ci_lo" = app.err + op632 - qnorm(1-alpha/2) * se.e0,
-              "ci_hi" = app.err + op632 + qnorm(1-alpha/2) * se.e0))
+              "se_est2" = se.e0.adj,
+              "ci_lo" = app.err + op632 - qnorm(1-alpha/2) * se.e0.adj * ratio,
+              "ci_hi" = app.err + op632 + qnorm(1-alpha/2) * se.e0.adj * ratio))
 }
