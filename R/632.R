@@ -43,6 +43,7 @@ boot632 <- function(x, y, funcs, alpha = .1, nboot = 500,  ...) {
   }
 
   # carry out + store bootstrap model fitting and evaluations
+  # cat("fitting")
   for(b in 1:nboot) {
     ii <- saveii[, b]
     fit <- theta.fit(x[ii,  ], y[ii], ...)
@@ -90,6 +91,7 @@ boot632 <- function(x, y, funcs, alpha = .1, nboot = 500,  ...) {
     }
 
     #compute terms in (39)
+    #cat("39")
     en<-(1-1/n)^(-n)
     qq<-rep(0,nboot)
     nq<-matrix(0,nrow=nboot,ncol=n)
@@ -116,25 +118,26 @@ boot632 <- function(x, y, funcs, alpha = .1, nboot = 500,  ...) {
     se.e0<-sqrt(sum(dd^2))
 
     #compute line (42)
-    for(b in 1:nboot){
-      for(i in 1:n) {
-        # o <- apply(saveii, 2, helper, i)
-        o <- count_mat[i, ]
-        o[b]<-1
-        if(sum(o == 0) == 0)
-          cat("increase nboot for computation of the .632 estimator",
-              fill = T)
-        temp[i]<- sum(err1[o == 0, i])/sum(o == 0)
-        e0b[b] <- e0b[b] + temp[i]/n
-    }}
+    # for(b in 1:nboot){
+    #   for(i in 1:n) {
+    #     # o <- apply(saveii, 2, helper, i)
+    #     o <- count_mat[i, ]
+    #     o[b]<-1
+    #     if(sum(o == 0) == 0)
+    #       cat("increase nboot for computation of the .632 estimator",
+    #           fill = T)
+    #     temp[i]<- sum(err1[o == 0, i])/sum(o == 0)
+    #     e0b[b] <- e0b[b] + temp[i]/n
+    # }}
 
     #compute line (42)
+    #cat("42")
     dib <- matrix(0, nrow = nboot, ncol = n)
     for(b in 1:nboot){
       #analog of e0i, leaving out fold b
       e0i_in<-rep(0,n) #OOB error for each obs, without fold b
       for(i in 1:n) {
-        o <- apply(saveii, 2, helper, i)
+        o <- count_mat[i, ]
         o[b]<-1
         #nb[i]<-sum(o==0)
         if(sum(o == 0) == 0)
