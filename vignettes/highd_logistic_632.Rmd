@@ -53,6 +53,8 @@ lambdas <- fit$lambda
 best_lam <- match(fit$lambda.min, lambdas)
 best_lam
 lambdas[best_lam]
+
+funcs_params = list("lambdas" = lambdas, "best_lam" = best_lam)
 ################################################
 ```
 
@@ -84,19 +86,23 @@ logistic_lasso_funs <- list(fitter = fitter_glmnet_logistic,
                             predictor = predictor_glmnet_logistic,
                             loss = misclass_loss,
                             name = "logistic_lasso")
+```
 
+```{r}
 #run the .632 bootstrap
 set.seed(1)
+t1 <- Sys.time()
 out <- boot632(x = X, y = Y, nboot = 1000, 
                  funcs = logistic_lasso_funs,
                funcs_params = list("lambdas" = lambdas, "best_lam" = best_lam))
-out #too small. The standard error should be something like 0.08
+print(Sys.time() - t1)
+out 
 ```
 
 ```{r}
 #using the .632 code to get an estimate of prediction error and SE
 n_sim <- 10
-set.seed(55)
+set.seed(5555)
 
 boot_results <- list()
 errs <- c()
@@ -109,12 +115,12 @@ for(i in 1:n_sim){
   probs <- 1 / (1 + exp(-strength * X %*% beta))
   Y <- (runif(n) < probs) * 1.0
   out <- boot632(x = X, y = Y, nboot = 500, 
-                   theta.fit = theta_fit, theta.predict = theta_predict,
-                   err.meas = err_meas, calcse = T, calce00 = T)
+                 funcs = logistic_lasso_funs,
+                 funcs_params = funcs_params)
   
-  fit <- theta_fit(X, Y)
-  pred <- theta_predict(fit, X_holdout, Y_holdout)
-  errs <- c(errs, mean(err_meas(pred, Y_holdout)))
+  fit <- fitter_glmnet_logistic(X, Y, funcs_params = funcs_params)
+  pred <- predictor_glmnet_logistic(fit, X_holdout, funcs_params = funcs_params)
+  errs <- c(errs, mean(misclass_loss(pred, Y_holdout)))
   
   boot_results[[i]] <- out
 }
