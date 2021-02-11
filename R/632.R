@@ -166,8 +166,8 @@ boot632 <- function(x, y, funcs, alpha = .1, nboot = 500,  ...) {
               "bias_est" = e0 - app.err - op632,
               "raw_mean" = e0,
               "se_naive" = se.naive,
-              "se_est" = se.e0,
-              "se_est2" = se.e0.adj,
+              "se_est" = se.e0 * ratio,
+              "se_est2" = se.e0.adj * ratio,
               "ci_lo" = app.err + op632 - qnorm(1-alpha/2) * se.e0.adj * ratio,
               "ci_hi" = app.err + op632 + qnorm(1-alpha/2) * se.e0.adj * ratio))
 }
