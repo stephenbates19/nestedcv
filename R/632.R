@@ -52,15 +52,8 @@ boot632 <- function(x, y, funcs, alpha = .1, nboot = 500,  ...) {
     err1[b,  ] <- err.meas(y, yhat2)
     err2[b] <- mean(err.meas(y[ii], yhat1))
     err3[b,  ] <- err.meas(y[ii], yhat1)
-
-    # qhat<-matrix((table(c(y[ii],unique(y)))-1)/length(y), nrow=1)
-    # dd<-phat%*%qhat
   }
 
-  #error - error on in-sample points
-  #opold <- mean(apply(err1, 1, mean) - err2)
-
-  #u0<-mean(apply(err1, 1, mean))
 
   #helper to count number of instances of i in vector
   #of indices x
@@ -69,8 +62,6 @@ boot632 <- function(x, y, funcs, alpha = .1, nboot = 500,  ...) {
   }
 
   #compute OOB error
-  #e1<-0
-  #dd<-rep(0,n)
   e0i<-rep(0,n) #OOB error for each obs
   for(i in 1:n) {
     o <- apply(saveii, 2, helper, i)
@@ -113,22 +104,7 @@ boot632 <- function(x, y, funcs, alpha = .1, nboot = 500,  ...) {
     for(i in 1:n){
       dd[i]<-(2+1/(n-1))*((e0i[i]-e0)/n)+en*cov(nq[,i],qq)
     }
-
-    #compute (35)
-    se.e0<-sqrt(sum(dd^2))
-
-    #compute line (42)
-    # for(b in 1:nboot){
-    #   for(i in 1:n) {
-    #     # o <- apply(saveii, 2, helper, i)
-    #     o <- count_mat[i, ]
-    #     o[b]<-1
-    #     if(sum(o == 0) == 0)
-    #       cat("increase nboot for computation of the .632 estimator",
-    #           fill = T)
-    #     temp[i]<- sum(err1[o == 0, i])/sum(o == 0)
-    #     e0b[b] <- e0b[b] + temp[i]/n
-    # }}
+    se.e0<-sqrt(sum(dd^2)) #compute (35)
 
     #compute line (42)
     #cat("42")
@@ -139,7 +115,6 @@ boot632 <- function(x, y, funcs, alpha = .1, nboot = 500,  ...) {
       for(i in 1:n) {
         o <- count_mat[i, ]
         o[b]<-1
-        #nb[i]<-sum(o==0)
         if(sum(o == 0) == 0)
           cat("increase nboot for computation of the .632 estimator",
               fill = T)
@@ -152,9 +127,6 @@ boot632 <- function(x, y, funcs, alpha = .1, nboot = 500,  ...) {
       }
     }
     sein.e0 <- sqrt(sum(apply(dib, 2, sd)^2*(nboot-1)^2/nboot))
-
-    #sein.e0<-sqrt(((nboot-1)/nboot)*sum( (e0b-mean(e0b))^2) )
-
   }
 
   op632 = 0.632 * (e0 - app.err)
