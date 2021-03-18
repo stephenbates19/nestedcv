@@ -109,21 +109,18 @@ nested_cv <- function(X, Y, funcs, reps = 50, n_folds = 10,  alpha = .1, bias_re
   gp_errs <- c()
   ho_errs <- c()
   if(n_cores == 1){
-    for(i in 1:reps) {
-      temp <- nestedcv:::nested_cv_helper(X, Y, funcs, n_folds, trans = trans, funcs_params = funcs_params)
-      var_pivots <- rbind(var_pivots, temp$pivots)
-      gp_errs <- rbind(gp_errs, temp$gp_errs)
-      ho_errs <- c(ho_errs, temp$errs)
-    }
+    raw <- lapply(1:reps, function(i){nestedcv:::nested_cv_helper(X, Y, funcs, n_folds,
+                                                                  trans = trans, funcs_params = funcs_params)})
   } else {
-    raw <- parallel::mclapply(1:reps, function(i){nestedcv:::nested_cv_helper(X, Y, funcs, n_folds, trans = trans, funcs_params = funcs_params)},
+    raw <- parallel::mclapply(1:reps, function(i){nestedcv:::nested_cv_helper(X, Y, funcs, n_folds,
+                                                                              trans = trans, funcs_params = funcs_params)},
                               mc.cores = n_cores)
-    for(i in 1:reps) {
-      temp <- raw[[i]]
-      var_pivots <- rbind(var_pivots, temp$pivots)
-      gp_errs <- rbind(gp_errs, temp$gp_errs)
-      ho_errs <- c(ho_errs, temp$errs)
-    }
+  }
+  for(i in 1:reps) {
+    temp <- raw[[i]]
+    var_pivots <- rbind(var_pivots, temp$pivots)
+    gp_errs <- rbind(gp_errs, temp$gp_errs)
+    ho_errs <- c(ho_errs, temp$errs)
   }
 
   # inflation estimate on a variance scale
@@ -138,7 +135,8 @@ nested_cv <- function(X, Y, funcs, reps = 50, n_folds = 10,  alpha = .1, bias_re
   ugp_infl <- (var(as.vector(var_pivots[, 1])) / var(ho_errs) * length(Y) / n_folds - 1) * (n_folds - 1)
   ugp_infl <- max(1, min(ugp_infl, n_folds))
   infl_est2 <- sapply(1:reps, function(i) {
-      temp <- (var(as.vector(var_pivots[1:(i*n_folds), 1])) / var(ho_errs[1:(i*length(Y)*(n_folds-1))]) * length(Y) / n_folds - 1) * (n_folds - 1)
+      temp <- (var(as.vector(var_pivots[1:(i*n_folds), 1])) /
+                 var(ho_errs[1:(i*length(Y)*(n_folds-1))]) * length(Y) / n_folds - 1) * (n_folds - 1)
       max(1, min(temp, n_folds))
   })
 
@@ -157,7 +155,7 @@ nested_cv <- function(X, Y, funcs, reps = 50, n_folds = 10,  alpha = .1, bias_re
       cv_means <- c(cv_means, temp$err_hat)
     }
 
-    bias_est <- ( mean(ho_errs) - mean(cv_means)) * (1 + ((n_folds - 2) / (n_folds - 1))^(1.5))
+    bias_est <- (mean(ho_errs) - mean(cv_means)) * (1 + ((n_folds - 2) / (n_folds ))^(1.5))
   }
   pred_est <- mean(ho_errs) - bias_est #debiased estimate
 

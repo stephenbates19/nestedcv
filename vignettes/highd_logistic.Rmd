@@ -101,7 +101,7 @@ t1 <- Sys.time()
 set.seed(100)
 nested_cv_results <- nestedcv::nested_cv(X, Y, logistic_lasso_funs, 
                            n_folds = n_folds, reps  = nested_cv_reps, 
-                           funcs_params = list("lambdas" = lambdas, "best_lam" = best_lam), n_cores = 2)
+                           funcs_params = list("lambdas" = lambdas, "best_lam" = best_lam))
 t2 <- Sys.time()
 print(t2 - t1)
 
