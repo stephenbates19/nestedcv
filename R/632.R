@@ -11,12 +11,12 @@ boot632 <- function(x, y, funcs, alpha = .1, nboot = 500,  ...) {
 
   sein.e0<-NULL
   se.e0<-NULL
+  n <- length(y)
   temp<-rep(0,n)
   nb<-rep(0,n)
   e0b<-rep(0,nboot)
   call <- match.call()
   x <- as.matrix(x)
-  n <- length(y)
   saveii <- NULL
   fit0 <- theta.fit(x, y, ...)
   yhat0 <- theta.predict(fit0, x, ...)
