@@ -228,22 +228,7 @@ nested_cv_helper <- function(X, Y, funcs, n_folds = 10, trans = list(identity), 
     }
   }
 
-  #grouped errors on points not used for fitting, combined across all runs. matrix with length(trans) cols
-  all_ho_gp_errs <- c()
-  for(f1 in 1:(n_folds - 1)) {
-    for(f2 in (f1+1):n_folds) {
-      temp <- matrix(0, 2, length(trans))
-      for(tnum in 1:length(trans)) {
-        tran <- trans[[tnum]]
-        temp[1, tnum] <- tran(mean(ho_errors[f2, f1, ]))
-        temp[2, tnum] <- tran(mean(ho_errors[f1, f2, ]))
-      }
-      all_ho_gp_errs <- rbind(all_ho_gp_errs, temp)
-    }
-  }
-
   return(list("pivots" = out_mat,
-              "errs" = all_ho_errs,
-              "gp_errs" = all_ho_gp_errs))
+              "errs" = all_ho_errs))
 }
 ##############################################
