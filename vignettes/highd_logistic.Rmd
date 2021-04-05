@@ -39,6 +39,7 @@ Y <- (runif(n) < probs) * 1.0
 fit <- cv.glmnet(X, Y, family = "binomial")
 lambdas <- fit$lambda
 best_lam <- match(fit$lambda.1se, lambdas) #selected value of lambda
+lambda <- lambdas[1:best_lam]
 
 #determine Bayes error with this beta vector with large holdout set
 set.seed(555)

@@ -103,17 +103,17 @@ naive_cv <- function(X, Y, funcs, n_folds = 10, alpha = .1,
 #'
 #' @export
 nested_cv <- function(X, Y, funcs, reps = 50, n_folds = 10,  alpha = .1, bias_reps = NA,
-                      trans = list(identity), funcs_params = NULL, n_cores = 1) {
+                      funcs_params = NULL, n_cores = 1) {
   #compute out-of-fold errors on SE scale
   var_pivots <- c()
   gp_errs <- c()
   ho_errs <- c()
   if(n_cores == 1){
     raw <- lapply(1:reps, function(i){nestedcv:::nested_cv_helper(X, Y, funcs, n_folds,
-                                                                  trans = trans, funcs_params = funcs_params)})
+                                                                  funcs_params = funcs_params)})
   } else {
     raw <- parallel::mclapply(1:reps, function(i){nestedcv:::nested_cv_helper(X, Y, funcs, n_folds,
-                                                                              trans = trans, funcs_params = funcs_params)},
+                                                                              funcs_params = funcs_params)},
                               mc.cores = n_cores)
   }
   for(i in 1:reps) {
@@ -121,14 +121,6 @@ nested_cv <- function(X, Y, funcs, reps = 50, n_folds = 10,  alpha = .1, bias_re
     var_pivots <- rbind(var_pivots, temp$pivots)
     gp_errs <- rbind(gp_errs, temp$gp_errs)
     ho_errs <- c(ho_errs, temp$errs)
-  }
-
-  # inflation estimate on a variance scale
-  infl_est <- rep(0, length(trans))
-  for(tnum in 1:length(trans)) {
-    temp_est <- (var(as.vector(var_pivots[, tnum])) / var(gp_errs[, tnum]) - 1) * (n_folds - 1)
-    temp_est <- max(1, min(temp_est, n_folds))
-    infl_est[tnum] <- temp_est
   }
 
   # look at the estimate of inflation after each repetition
@@ -164,9 +156,6 @@ nested_cv <- function(X, Y, funcs, reps = 50, n_folds = 10,  alpha = .1, bias_re
       "ci_lo" = pred_est - qnorm(1-alpha/2) * sd(ho_errs) / sqrt(length(Y)) * sqrt(ugp_infl),
       "ci_hi" = pred_est + qnorm(1-alpha/2) * sd(ho_errs) / sqrt(length(Y)) * sqrt(ugp_infl),
       "raw_mean" = mean(ho_errs),
-      "gp_mean" = apply(gp_errs, 2, mean),
-      "gp_sd" = apply(gp_errs, 2, sd),
-      "gp_sd_infl" = sqrt(infl_est),
       "bias_est" = bias_est,
       "sd" = sd(ho_errs),
       "running_sd_infl" = sqrt(infl_est2))
@@ -183,12 +172,13 @@ nested_cv <- function(X, Y, funcs, reps = 50, n_folds = 10,  alpha = .1, bias_re
 #'   \item{\code{pivots}}{A vector of same length as Y of difference statistics.}
 #'   \item{\code{errors}}{A vector of all errors of observations not used in model training.}
 #' }
-nested_cv_helper <- function(X, Y, funcs, n_folds = 10, trans = list(identity), funcs_params = NULL) {
+nested_cv_helper <- function(X, Y, funcs, n_folds = 10, funcs_params = NULL) {
   fold_id <- 1:nrow(X) %% n_folds + 1
-  fold_id <- sample(fold_id)
+  fold_id <- sample(fold_id[1:(nrow(X) %/% n_folds * n_folds)]) #handle case where n doesn't divide n_folds
+  fold_id <- c(fold_id, rep(0, nrow(X) %% n_folds))
 
   #nested CV model fitting
-  ho_errors <- array(0, dim = c(n_folds, n_folds, nrow(X) / n_folds))
+  ho_errors <- array(0, dim = c(n_folds, n_folds, nrow(X) %/% n_folds))
     #^ entry i, j is error on fold i,
     # when folds i & j are not used for model fitting.
   for(f1 in 1:(n_folds - 1)) {
@@ -201,23 +191,19 @@ nested_cv_helper <- function(X, Y, funcs, n_folds = 10, trans = list(identity), 
     }
   }
 
-  #e_bar - f_bar in the notation of the paper. n_folds x length(tran) matrix
-  out_mat <- matrix(0, n_folds, length(trans))
+  #e_bar - f_bar in the notation of the paper. n_folds x 1 matrix
+  out_mat <- matrix(0, n_folds, 1)
   for(f1 in 1:(n_folds)) {
     i <- sample(1:(n_folds-1), 1)
     if(i >= f1) {i <- i + 1} #sample random other fold
 
-    for(tnum in 1:length(trans)) {
-      tran <- trans[[tnum]]
-
-      #loop over other folds
-      e_bar_t <- c() #transformed group means
-      for(f2 in 1:n_folds) {
-        if(f2 == f1) {next}
-        e_bar_t <- c(e_bar_t, tran(mean(ho_errors[f2, f1, ])))
-      }
-      out_mat[f1, tnum] <- mean(e_bar_t) -  tran(mean(ho_errors[f1, i, ]))
+    #loop over other folds
+    e_bar_t <- c() # errors from internal CV
+    for(f2 in 1:n_folds) {
+      if(f2 == f1) {next}
+      e_bar_t <- c(e_bar_t, ho_errors[f2, f1, ])
     }
+    out_mat[f1, 1] <- mean(e_bar_t) -  mean(ho_errors[f1, i, ])
   }
 
   #errors on points not used for fitting, combined across all runs
