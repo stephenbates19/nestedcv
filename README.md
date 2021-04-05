@@ -2,8 +2,9 @@
 Nested cross-validation for accurate confidence intervals for prediction error.
 
 This method was introduced in the paper
-[https://arxiv.org/abs/2104.00673](“Cross-validation: what does it estimate and how well does it do it?”)
-by Stephen Bates, Trevor Hastie, and Robert Tibshirani.
+"Cross-validation: what does it estimate and how well does it do it?”
+by Stephen Bates, Trevor Hastie, and Robert Tibshirani, 
+available at <https://arxiv.org/abs/2104.00673>.
 
 To install, run
 ```
