@@ -99,7 +99,7 @@ nested_cv_reps <- 100 #average over many random splits
 
 #nested CV
 t1 <- Sys.time()
-set.seed(100)
+set.seed(101)
 nested_cv_results <- nestedcv::nested_cv(X, Y, logistic_lasso_funs, 
                            n_folds = n_folds, reps  = nested_cv_reps, 
                            funcs_params = list("lambdas" = lambdas, "best_lam" = best_lam))
@@ -122,6 +122,8 @@ number of random splits.
 plot(nested_cv_results$running_sd_infl,
      xlab="Number of random splits", 
      ylab = "Estimate of Standardized Inflation")
+
+nested_cv_results$sd_infl
 ```
 
 It looks like the estimate is relatively stable, so we have used enough random splits. Based on this 

@@ -103,7 +103,16 @@ naive_cv <- function(X, Y, funcs, n_folds = 10, alpha = .1,
 #'
 #' @export
 nested_cv <- function(X, Y, funcs, reps = 50, n_folds = 10,  alpha = .1, bias_reps = NA,
-                      funcs_params = NULL, n_cores = 1) {
+                      funcs_params = NULL, n_cores = 1, verbose = F) {
+  #estimate time required
+  if(verbose) {
+    t1 <- Sys.time()
+    temp <- nestedcv:::nested_cv_helper(X, Y, funcs, n_folds,
+                                        funcs_params = funcs_params)
+    t2 <- Sys.time()
+    print(paste0("Estimated time required: ", (t2 - t1) * reps))
+  }
+
   #compute out-of-fold errors on SE scale
   var_pivots <- c()
   gp_errs <- c()
@@ -119,18 +128,18 @@ nested_cv <- function(X, Y, funcs, reps = 50, n_folds = 10,  alpha = .1, bias_re
   for(i in 1:reps) {
     temp <- raw[[i]]
     var_pivots <- rbind(var_pivots, temp$pivots)
-    gp_errs <- rbind(gp_errs, temp$gp_errs)
     ho_errs <- c(ho_errs, temp$errs)
   }
 
+
+  n_sub <- floor(length(Y) * (n_folds - 1) / n_folds)
   # look at the estimate of inflation after each repetition
-  ugp_infl <- (var(as.vector(var_pivots[, 1])) / var(ho_errs) * length(Y) / n_folds - 1) * (n_folds - 1)
-  ugp_infl <- max(1, min(ugp_infl, n_folds))
-  infl_est2 <- sapply(1:reps, function(i) {
-      temp <- (var(as.vector(var_pivots[1:(i*n_folds), 1])) /
-                 var(ho_errs[1:(i*length(Y)*(n_folds-1))]) * length(Y) / n_folds - 1) * (n_folds - 1)
-      max(1, min(temp, n_folds))
-  })
+  ugp_infl <- sqrt(mean((var_pivots[, 1] - var_pivots[, 2])^2)) / (sd(ho_errs) / sqrt(n_sub))
+  ugp_infl <- max(1, min(ugp_infl, sqrt(n_folds)))
+
+  #estimate of inflation at each time step
+  infl_est2 <- sqrt(sapply(1:reps, function(i){mean((var_pivots[1:(i*n_folds), 1] - var_pivots[1:(i*n_folds), 2])^2)})) /
+    (sd(ho_errs) / sqrt(n_sub))
 
   #bias correction
   cv_means <- c() #estimated pred error from normal CV
@@ -151,14 +160,14 @@ nested_cv <- function(X, Y, funcs, reps = 50, n_folds = 10,  alpha = .1, bias_re
   }
   pred_est <- mean(ho_errs) - bias_est #debiased estimate
 
-  list("sd_infl" = sqrt(ugp_infl),
+  list("sd_infl" = ugp_infl,
       "err_hat" = pred_est,
-      "ci_lo" = pred_est - qnorm(1-alpha/2) * sd(ho_errs) / sqrt(length(Y)) * sqrt(ugp_infl),
-      "ci_hi" = pred_est + qnorm(1-alpha/2) * sd(ho_errs) / sqrt(length(Y)) * sqrt(ugp_infl),
+      "ci_lo" = pred_est - qnorm(1-alpha/2) * sd(ho_errs) / sqrt(length(Y)) * ugp_infl,
+      "ci_hi" = pred_est + qnorm(1-alpha/2) * sd(ho_errs) / sqrt(length(Y)) * ugp_infl,
       "raw_mean" = mean(ho_errs),
       "bias_est" = bias_est,
       "sd" = sd(ho_errs),
-      "running_sd_infl" = sqrt(infl_est2))
+      "running_sd_infl" = infl_est2)
 }
 
 #' Internal helper for nested_cv
@@ -192,10 +201,12 @@ nested_cv_helper <- function(X, Y, funcs, n_folds = 10, funcs_params = NULL) {
   }
 
   #e_bar - f_bar in the notation of the paper. n_folds x 1 matrix
-  out_mat <- matrix(0, n_folds, 1)
+  out_mat <- matrix(0, n_folds, 2)
   for(f1 in 1:(n_folds)) {
-    i <- sample(1:(n_folds-1), 1)
-    if(i >= f1) {i <- i + 1} #sample random other fold
+    test_idx <- which(fold_id == f1)
+    fit <- funcs$fitter(X[-test_idx, ], Y[-test_idx], funcs_params = funcs_params)
+    presd <- funcs$predictor(fit, X[test_idx, ], funcs_params = funcs_params)
+    e_out <- funcs$loss(preds, Y[test_idx])
 
     #loop over other folds
     e_bar_t <- c() # errors from internal CV
@@ -203,10 +214,11 @@ nested_cv_helper <- function(X, Y, funcs, n_folds = 10, funcs_params = NULL) {
       if(f2 == f1) {next}
       e_bar_t <- c(e_bar_t, ho_errors[f2, f1, ])
     }
-    out_mat[f1, 1] <- mean(e_bar_t) -  mean(ho_errors[f1, i, ])
+    out_mat[f1, 1] <- mean(e_bar_t) - mean(e_out) # (a) terms
+    out_mat[f1, 2] <- var(e_out) / length(test_idx) # (b) terms
   }
 
-  #errors on points not used for fitting, combined across all runs
+  #errors on points not used for fitting, combined across all runs (used for point estimate)
   all_ho_errs <- c()
   for(f1 in 1:(n_folds - 1)) {
     for(f2 in (f1+1):n_folds) {
