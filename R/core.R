@@ -134,11 +134,11 @@ nested_cv <- function(X, Y, funcs, reps = 50, n_folds = 10,  alpha = .1, bias_re
 
   n_sub <- floor(length(Y) * (n_folds - 1) / n_folds)
   # look at the estimate of inflation after each repetition
-  ugp_infl <- sqrt(mean((var_pivots[, 1] - var_pivots[, 2])^2)) / (sd(ho_errs) / sqrt(n_sub))
+  ugp_infl <- sqrt(max(0, mean(var_pivots[, 1]^2 - var_pivots[, 2]))) / (sd(ho_errs) / sqrt(n_sub))
   ugp_infl <- max(1, min(ugp_infl, sqrt(n_folds)))
 
   #estimate of inflation at each time step
-  infl_est2 <- sqrt(sapply(1:reps, function(i){mean((var_pivots[1:(i*n_folds), 1] - var_pivots[1:(i*n_folds), 2])^2)})) /
+  infl_est2 <- sqrt(pmax(0, sapply(1:reps, function(i){mean(var_pivots[1:(i*n_folds), 1]^2 - var_pivots[1:(i*n_folds), 2])}))) /
     (sd(ho_errs) / sqrt(n_sub))
 
   #bias correction
@@ -205,7 +205,7 @@ nested_cv_helper <- function(X, Y, funcs, n_folds = 10, funcs_params = NULL) {
   for(f1 in 1:(n_folds)) {
     test_idx <- which(fold_id == f1)
     fit <- funcs$fitter(X[-test_idx, ], Y[-test_idx], funcs_params = funcs_params)
-    presd <- funcs$predictor(fit, X[test_idx, ], funcs_params = funcs_params)
+    preds <- funcs$predictor(fit, X[test_idx, ], funcs_params = funcs_params)
     e_out <- funcs$loss(preds, Y[test_idx])
 
     #loop over other folds

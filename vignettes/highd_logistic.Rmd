@@ -95,14 +95,14 @@ With these functions, we carry out nested CV on our data
 
 ```{r}
 n_folds <- 5
-nested_cv_reps <- 100 #average over many random splits
+nested_cv_reps <- 200 #average over many random splits
 
 #nested CV
 t1 <- Sys.time()
 set.seed(101)
 nested_cv_results <- nestedcv::nested_cv(X, Y, logistic_lasso_funs, 
                            n_folds = n_folds, reps  = nested_cv_reps, 
-                           funcs_params = list("lambdas" = lambdas, "best_lam" = best_lam))
+                           funcs_params = list("lambdas" = lambdas, "best_lam" = best_lam), verbose = T)
 t2 <- Sys.time()
 print(t2 - t1)
 
