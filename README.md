@@ -1,4 +1,4 @@
-# nestedecv
+# nestedcv
 Nested cross-validation for accurate confidence intervals for prediction error.
 
 This method was introduced in the paper
