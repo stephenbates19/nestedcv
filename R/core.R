@@ -32,9 +32,12 @@
 #'
 #' @export
 naive_cv <- function(X, Y, funcs, n_folds = 10, alpha = .1,
-                     trans = list(identity), funcs_params = NULL) {
-  fold_id <- (1:nrow(X)) %% n_folds + 1
-  fold_id <- sample(fold_id)
+                     trans = list(identity), funcs_params = NULL, fold_id = NULL) {
+
+  if(is.null(fold_id)) {
+    fold_id <- (1:nrow(X)) %% n_folds + 1
+    fold_id <- sample(fold_id)
+  }
 
   errors <- c()
   gp_errors <- c()

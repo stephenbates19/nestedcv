@@ -94,8 +94,8 @@ logistic_lasso_funs <- list(fitter = fitter_glmnet_logistic,
 With these functions, we carry out nested CV on our data
 
 ```{r}
-n_folds <- 5
-nested_cv_reps <- 200 #average over many random splits
+n_folds <- 6
+nested_cv_reps <- 300 #average over many random splits
 
 #nested CV
 t1 <- Sys.time()
